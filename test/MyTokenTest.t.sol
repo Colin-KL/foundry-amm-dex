@@ -49,4 +49,67 @@ contract MyTokenTest is Test {
         //接收方余额增加
         assertEq(token.balances(recipient), recipientBalanceBefore + amount);
     }
+
+    //余额不足转账失败测试
+    function test_TransferInsufficientBalance() public {
+        address recipient = vm.addr(2);
+        uint256 excessiveAmount = token.totalSupply() + 1;
+        vm.expectRevert("Insufficient balance");
+        token.transfer(recipient,excessiveAmount);
+    }
+
+    //授权转账测试
+    function test_ApproveAndTransferFrom() public {
+        address spender = vm.addr(3);
+        address recipient = vm.addr(4);
+
+        //设置授权金额
+        uint256 amount = 1000 * 10 ** 18;
+        //设置转账金额
+        uint256 transferAmount = 500 * 10 ** 18;
+
+        //记录授权帐前余额
+        uint256 deployerBalanceBefore = token.balances(address(this));
+        uint256 recipientBalanceBefore = token.balances(recipient);
+
+        token.approve(spender, amount);
+        vm.prank(spender);
+        token.transferFrom(address(this),recipient,transferAmount);
+        assertEq(token.allowance(address(this),spender), amount - transferAmount);
+        assertEq(token.balances(recipient), recipientBalanceBefore + transferAmount);
+        assertEq(token.balances(address(this)), deployerBalanceBefore - transferAmount);
+    }
+
+    //铸造测试
+    function test_Mint() public {
+        uint256 mintAmount = 1000 * 10 ** 18;
+        address recipient = vm.addr(5);
+        uint256 totalSupplyBefore = token.totalSupply();
+        uint256 recipientBalanceBefore = token.balances(recipient);
+        bool success = token.mint(recipient, mintAmount);
+        assertTrue(success);
+        assertEq(totalSupplyBefore + mintAmount, token.totalSupply());
+        assertEq(token.balances(recipient),recipientBalanceBefore + mintAmount);
+        
+    }
+
+    //销毁测试
+    function test_Burn() public {
+        uint256 totalSupplyBefore = token.totalSupply();
+        uint256 burnAmount = 500 * 10 ** 18;
+        uint256 BalanceBeforeBurn = token.balances(address(this));
+        bool success = token.burn(burnAmount);
+        assertTrue(success);
+        assertEq(token.balances(address(this)),BalanceBeforeBurn - burnAmount);
+        assertEq(totalSupplyBefore -burnAmount, token.totalSupply());
+    }
+
+    //测试非owner无法铸造
+    function test_MintNotOwner() public {
+        uint256 mintAmount = 1000 * 10 ** 18;
+        address notOwner = vm.addr(6);
+        vm.prank(notOwner);
+        vm.expectRevert("Not owner");
+        token.mint(notOwner, mintAmount);
+    }
 }
